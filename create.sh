@@ -5,21 +5,23 @@ GREEN=$(printf '\033[1;32m')
 BOLD=$(printf '\033[1m')
 NC=$(printf '\033[0m')         # No Color
 DATE=$(date +%Y%m%d)
+PRIME=prime256v1 
 SSLDIR=/etc/ssl/private
 WEBROOT=/var/www/html
 VERBOSE=0
 
 function usage() {
   printf "\nRenew an EC certificate\n\n"
-  printf "Usage: %s -s 'SITE [SITE]' [-h -v]\n\n" "$0"
+  printf "Usage: %s -s 'SITE [SITE SITE ..]' [-o SSLDIR -p PRIME -w WEBROOT -h -v]\n\n" "$0"
   printf "  -s 'SITE SITE'  the site(s) to create a certificate for\n"
   printf "  -o SSLDIR       the certificate directory, default: '%s'\n" "${SSLDIR}"
+  printf "  -p PRIME        the prime to use, default: '%s'\n" "${PRIME}"
   printf "  -w WEBROOT      the webroot directory, default: '%s'\n" "${WEBROOT}"
   printf "  -h              this help message\n"
   printf "  -v              be verbose\n\n"
 
   printf "Example:\n"
-  printf "  %s -s 'one.example.com two.example.com three.example.com'\n\n" "$0"
+  printf "  %s -s 'one.example.com two.example.com three.example.com' -o /my/ssl/dir -w /var/www/one.example.com -p secp384r1 -v\n\n" "$0"
 }
 
 # Function: Exit with error.
@@ -37,10 +39,11 @@ function init() {
     printf "  %s: Illegal number of parameters\n" "${RED}FAIL${NC}" >&2
     exit_abnormal
   fi
-  while getopts :s:o:w:hv option; do
+  while getopts :s:o:p:w:hv option; do
     case "${option}" in
     s) SITES=${OPTARG} ;;
     o) SSLDIR=${OPTARG};;
+    p) PRIME=${OPTARG};;
     w) WEBROOT=${OPTARG};;
     h) print_help;;
     v) VERBOSE=1;;
@@ -83,7 +86,7 @@ function create_privkey_csr() {
     -addext "subjectAltName = $(printf 'DNS:%s,' ${SITES}| sed 's/,$//')" \
     -addext "certificatePolicies = TLS Web Server Authentication, TLS Web Client Authentication" \
     -addext "basicConstraints = CA:FALSE" \
-    -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
+    -newkey ec -pkeyopt ec_paramgen_curve:${PRIME}\
     -keyout ${SSLDIR}/${SITE}/${DATE}_${SITE}.key.pem \
     -out ${SSLDIR}/${SITE}/${DATE}_${SITE}.csr.pem \
     -nodes -sha256 2>/dev/null
